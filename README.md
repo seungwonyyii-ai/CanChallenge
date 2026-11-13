@@ -1,4 +1,4 @@
-# N-BOX Speed Match — Korean Drinks Edition (3D)
+# CANCAN — Korean Drinks Speed Match (3D)
 
 숨겨진 정답 캔 배열을 추리하면서 **3-Box → 4-Box → 5-Box**를 연속으로 가장 빨리 클리어하는 1인용 웹 미니게임.
 기존 단일 HTML MVP(`reference/nbox_speed_match_mvp.html`)의 규칙과 UX를 그대로 유지하고, 캔·진열대·이동·교환·가림판을
@@ -31,7 +31,9 @@ E2E는 Playwright가 설치되어 있어야 합니다: `npm i -D playwright && n
 - 모든 슬롯이 차면 CHECK 없이 자동 판정 → 게임판 중앙에 `N RIGHT!` 0.7초 (맞은 개수만, 어느 칸인지는 비공개).
 - 정답 시 하단 가림판이 열려 실제 정답 캔 배열이 보이고, 짧은 홀드 후 다음 라운드.
 - **RESET**: 현재 라운드 배치만 초기화(정답·누적 시간·이전 기록 유지). **RESTART**: 3-Box부터 새 정답으로 전체 재시작(진행 중엔 확인).
-- 결과 화면: 총 시간, 라운드별 시간, 라운드별/전체 판정 횟수, 개인 최고 기록.
+- 결과 화면: 이번 기록을 개인 최고 기록과 막대로 비교(최고 기록까지 남은 초 / 단축한 초)하고 `다시 도전`을 유도. 총 판정 횟수 표시.
+- 시작 화면: `CANCAN`, 한 줄 설명, START 위에 MY BEST 카드. 왼쪽 위 `CANCAN` 로고를 누르면 시작 화면으로 돌아감(진행 중이면 확인).
+- HUD: 상단 중앙 스톱워치만 표시(라운드 진행 표시·안내 문구 없음). RESTART/나가기 확인은 게임 디자인의 자체 대화상자.
   최고 기록은 원본과 같은 `localStorage` 키 `nbox_best_stopwatch`(ms)에 저장되어 기존 기록과 호환됩니다.
 
 원본과의 작은 차이: 원본은 RESET 시 라운드 판정 횟수를 0으로 돌렸지만, 결과 화면의 "판정 횟수"가 정확하도록 RESET 후에도 횟수를 유지합니다.
@@ -78,26 +80,31 @@ src/
     Fallback2D.tsx # WebGL 미지원 시 2D 보드
   App.tsx          # 리듀서 + 타임라인(판정, 공개, 다음 라운드, 기록 저장)
   fonts.ts         # 폰트 로딩
-public/assets/drinks/  # 라이선스 확인된 캔 라벨 이미지를 두는 곳
+public/assets/drinks/  # 펼친 캔 라벨 텍스처 (생성물)
+assets-src/drinks/     # 원본 제품 정면 사진
+scripts/make_can_labels.py  # 사진 → 라벨 텍스처 변환
 public/assets/fonts/   # (선택) 배달의민족 꾸불림체 파일을 두는 곳
 reference/             # 원본 단일 HTML MVP
 scripts/e2e.mjs        # Playwright 전체 플레이 테스트
 docs/PRD.md            # 작업 지시서
 ```
 
-## 캔 이미지 교체 방법
+## 캔 이미지와 크기
 
-현재 캔은 **임시(placeholder) 라벨**입니다. 각 음료의 대표 색과 제품명으로 런타임에 생성되며 라벨에
-`PLACEHOLDER LABEL`이 표기되어 있습니다. **실제 브랜드 패키지를 재현한 것이 아닙니다.**
+- **라벨:** 프로젝트 소유자가 제공한 제품 정면 사진(`assets-src/drinks/<id>.jpg`)을 `scripts/make_can_labels.py`로
+  원통 라벨 텍스처(`public/assets/drinks/<id>.jpg`, 1024×512)로 펼쳐 씁니다. 정면 사진의 가장자리 압축을
+  `x = cx + R·sin φ`로 되돌리고(±78°), 그 바깥(캔 뒷면)은 정면을 거울처럼 이어 붙입니다. 캔은 회전하지 않아 뒷면은 보이지 않습니다.
+  사진을 바꾸면 `CROPS`(캔 몸통 좌우/위아래 픽셀)를 맞추고 `python3 scripts/make_can_labels.py`를 다시 실행하세요 (Pillow, numpy 필요).
+- **크기:** `can_dimensions.csv`의 추정치를 `drinks.ts`의 `diameterMm`/`heightMm`로 옮겨 실제 비율과 상대 너비를 반영합니다
+  (`MM = 0.0076` 월드 단위/mm). 실측으로 검증되지 않은 추정값입니다.
 
-원본 MVP는 쇼핑몰 상품 사진 URL을 직접 링크했지만 링크 깨짐·CORS·사용권 문제로 사용하지 않았습니다.
-실제 패키지를 쓰려면:
+  | 음료 | 용량 | 지름 × 높이 (mm) |
+  | --- | --- | --- |
+  | 아침햇살 · 초록매실 | 180 ml | 53 × 104 |
+  | 갈아만든배 · 비락식혜 | 238 ml | 66 × 92 |
+  | 솔의눈 | 240 ml | 53 × 134 |
 
-1. 사용권이 확인된 **펼친 라벨 이미지**(가로:세로 ≈ 2:1, 예: 1024×512, 가운데가 캔 정면)를 준비합니다.
-2. `public/assets/drinks/morning.png` 처럼 저장합니다. (`morning`, `plum`, `pear`, `sikhye`, `pine`)
-3. `src/game/drinks.ts`에서 해당 음료에 `labelTexture: 'assets/drinks/morning.png'`를 추가합니다.
-
-이미지 로딩에 실패하면 자동으로 placeholder 라벨을 유지합니다.
+- 이미지가 없거나 로딩에 실패하면 음료 색과 이름으로 만든 `PLACEHOLDER LABEL`이 자동으로 쓰입니다.
 
 ## 폰트 / 이미지 라이선스 확인 사항
 
@@ -107,7 +114,8 @@ docs/PRD.md            # 작업 지시서
   `src/fonts.ts`의 `KKUBULIM_FONT_FILE`을 설정하면 타이머·`N RIGHT!`·제목에 우선 적용됩니다.
 - **현재 폴백: 배달의민족 주아체(BM JUA)** — npm `@fontsource/jua`, **SIL Open Font License 1.1**. 같은 배민 폰트 계열의 둥근 분위기라 선택했고, Vite가 로컬 에셋으로 번들합니다(외부 CDN 없음).
 - **제품명·로고·패키지 이미지**(아침햇살, 초록매실, 갈아만든배, 비락식혜, 솔의눈)는 각 제조사의 상표/저작물입니다.
-  공개 배포 전에 라벨 이미지 사용 권한과 상표 사용 범위를 반드시 확인하세요.
+  현재 라벨은 프로젝트 소유자가 제공한 제품 사진으로 만든 것이며, 사진의 출처와 사용 권한은 이 저장소에서 검증되지 않았습니다.
+  공개 배포 전에 사진 사용 권한과 상표 사용 범위를 반드시 확인하세요.
 - Three.js, React Three Fiber, drei: MIT.
 
 ## 배포

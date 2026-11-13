@@ -22,7 +22,8 @@ export type GameAction =
   | { type: 'judge'; seq: number; now: number }
   | { type: 'reset' }
   | { type: 'nextRound'; runId: number; now: number; rng?: Rng }
-  | { type: 'showResult'; runId: number };
+  | { type: 'showResult'; runId: number }
+  | { type: 'home'; rng?: Rng };
 
 export function shuffle<T>(items: readonly T[], rng: Rng = Math.random): T[] {
   const a = [...items];
@@ -221,6 +222,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'showResult': {
       if (state.phase !== 'revealing' || action.runId !== state.runId || state.finalMs === null) return state;
       return { ...state, phase: 'finished' };
+    }
+
+    case 'home': {
+      // Back to the start screen. Bumping runId invalidates any pending
+      // round/result timers from the abandoned run.
+      if (state.phase === 'ready') return state;
+      return { ...createInitialState(action.rng), runId: state.runId + 1, moveSeq: state.moveSeq + 1 };
     }
 
     default:

@@ -2,48 +2,76 @@ import { useFrame } from '@react-three/fiber';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { DrinkId } from '../game/types';
-import { CAN_H, CAN_R, type Vec3 } from '../three/layout';
+import { canSize, type Vec3 } from '../three/layout';
 import { MOTION, clamp01, damp, easeInOutCubic, smoothstep } from '../three/motion';
 import { getLabelTexture, makeBlobTexture } from '../three/textures';
 
 // ---------------------------------------------------------------------------
-// Shared geometry / materials (created once)
+// Geometry, cached per can size (radius / height follow the real can)
 // ---------------------------------------------------------------------------
-const BOTTOM_H = 0.07;
-const TOP_H = 0.085;
-const BODY_H = CAN_H - BOTTOM_H - TOP_H;
-
 const lathe = (pts: [number, number][]) =>
   new THREE.LatheGeometry(
     pts.map(([x, y]) => new THREE.Vector2(x, y)),
     48,
   );
 
-const GEO = {
-  // label wraps the body; thetaStart = π puts u = 0.5 (label centre) at +z
-  body: new THREE.CylinderGeometry(CAN_R, CAN_R, BODY_H, 64, 1, true, Math.PI, Math.PI * 2),
-  bottom: lathe([
-    [0, 0.03],
-    [CAN_R * 0.62, 0.012],
-    [CAN_R * 0.8, 0],
-    [CAN_R * 0.88, 0.004],
-    [CAN_R * 0.98, 0.04],
-    [CAN_R, BOTTOM_H + 0.002],
-  ]),
-  top: lathe([
-    [CAN_R, -0.002],
-    [CAN_R * 0.985, 0.03],
-    [CAN_R * 0.88, 0.07],
-    [CAN_R * 0.875, TOP_H],
-    [CAN_R * 0.83, TOP_H + 0.006],
-    [CAN_R * 0.8, TOP_H - 0.008],
-    [CAN_R * 0.78, TOP_H - 0.012],
-    [0, TOP_H - 0.012],
-  ]),
-  tab: new THREE.BoxGeometry(CAN_R * 0.5, 0.008, CAN_R * 0.28),
-  outline: new THREE.CylinderGeometry(CAN_R, CAN_R, CAN_H, 48, 1, false),
-  blob: new THREE.PlaneGeometry(CAN_R * 3.1, CAN_R * 3.1),
-};
+interface CanGeo {
+  r: number;
+  h: number;
+  bottomH: number;
+  topH: number;
+  bodyH: number;
+  body: THREE.CylinderGeometry;
+  bottom: THREE.LatheGeometry;
+  top: THREE.LatheGeometry;
+  tab: THREE.BoxGeometry;
+  outline: THREE.CylinderGeometry;
+  blob: THREE.PlaneGeometry;
+}
+
+const geoCache = new Map<string, CanGeo>();
+
+function getGeo(r: number, h: number): CanGeo {
+  const key = `${r.toFixed(4)}:${h.toFixed(4)}`;
+  const hit = geoCache.get(key);
+  if (hit) return hit;
+  // metal neck / base scale with the can's radius
+  const bottomH = r * 0.26;
+  const topH = r * 0.32;
+  const bodyH = h - bottomH - topH;
+  const geo: CanGeo = {
+    r,
+    h,
+    bottomH,
+    topH,
+    bodyH,
+    // label wraps the body; thetaStart = π puts u = 0.5 (label centre) at +z
+    body: new THREE.CylinderGeometry(r, r, bodyH, 64, 1, true, Math.PI, Math.PI * 2),
+    bottom: lathe([
+      [0, bottomH * 0.43],
+      [r * 0.62, bottomH * 0.17],
+      [r * 0.8, 0],
+      [r * 0.88, bottomH * 0.06],
+      [r * 0.98, bottomH * 0.57],
+      [r, bottomH + 0.002],
+    ]),
+    top: lathe([
+      [r, -0.002],
+      [r * 0.985, topH * 0.35],
+      [r * 0.88, topH * 0.82],
+      [r * 0.875, topH],
+      [r * 0.83, topH + 0.006],
+      [r * 0.8, topH - 0.008],
+      [r * 0.78, topH - 0.012],
+      [0, topH - 0.012],
+    ]),
+    tab: new THREE.BoxGeometry(r * 0.5, 0.008, r * 0.28),
+    outline: new THREE.CylinderGeometry(r, r, h, 48, 1, false),
+    blob: new THREE.PlaneGeometry(r * 3.1, r * 3.1),
+  };
+  geoCache.set(key, geo);
+  return geo;
+}
 
 let metalMat: THREE.MeshStandardMaterial | null = null;
 const getMetal = () =>
@@ -137,12 +165,18 @@ export function Can3D({ id, position, selected = false, scale = 1, reducedMotion
   const glow = useRef(0);
   const born = useRef(appear && !reducedMotion ? -1 : 0);
 
+  const geo = useMemo(() => {
+    const { r, h } = canSize(id);
+    return getGeo(r, h);
+  }, [id]);
+
   const label = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
         map: getLabelTexture(id),
-        metalness: 0.25,
-        roughness: 0.38,
+        // the photo already carries its own shading → keep the label fairly matte
+        metalness: 0.08,
+        roughness: 0.42,
         emissive: new THREE.Color('#fff6e0'),
         emissiveIntensity: 0,
       }),
@@ -233,16 +267,16 @@ export function Can3D({ id, position, selected = false, scale = 1, reducedMotion
 
   return (
     <group ref={root} scale={scale}>
-      <mesh ref={blob} geometry={GEO.blob} material={blobMat} rotation-x={-Math.PI / 2} position-y={0.003} renderOrder={1} />
+      <mesh ref={blob} geometry={geo.blob} material={blobMat} rotation-x={-Math.PI / 2} position-y={0.003} renderOrder={1} />
       <group ref={lift}>
-        <mesh geometry={GEO.bottom} material={getMetal()} castShadow receiveShadow />
-        <mesh geometry={GEO.body} material={label} position-y={BOTTOM_H + BODY_H / 2} castShadow receiveShadow />
-        <group position-y={BOTTOM_H + BODY_H}>
-          <mesh geometry={GEO.top} material={getMetal()} castShadow receiveShadow />
-          <mesh geometry={GEO.tab} material={getMetal()} position={[0, TOP_H - 0.006, CAN_R * 0.3]} />
+        <mesh geometry={geo.bottom} material={getMetal()} castShadow receiveShadow />
+        <mesh geometry={geo.body} material={label} position-y={geo.bottomH + geo.bodyH / 2} castShadow receiveShadow />
+        <group position-y={geo.bottomH + geo.bodyH}>
+          <mesh geometry={geo.top} material={getMetal()} castShadow receiveShadow />
+          <mesh geometry={geo.tab} material={getMetal()} position={[0, geo.topH - 0.006, geo.r * 0.3]} />
         </group>
         {/* selection outline: back-face shell, warm and low-saturation */}
-        <mesh geometry={GEO.outline} position-y={CAN_H / 2} scale={[1.09, 1.035, 1.09]}>
+        <mesh geometry={geo.outline} position-y={geo.h / 2} scale={[1.09, 1.035, 1.09]}>
           <meshBasicMaterial ref={outlineMat} color="#c9a86a" side={THREE.BackSide} transparent opacity={0} depthWrite={false} />
         </mesh>
       </group>

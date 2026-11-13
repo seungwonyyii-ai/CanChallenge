@@ -264,6 +264,23 @@ describe('RESET vs RESTART', () => {
   });
 });
 
+describe('home (logo)', () => {
+  it('returns to the start screen and invalidates timers of the abandoned run', () => {
+    let s = started(3, 1000);
+    s = placeAll(s, s.answer);
+    s = gameReducer(s, { type: 'judge', seq: s.pendingJudge!, now: 2000 });
+    const oldRun = s.runId;
+    s = gameReducer(s, { type: 'home', rng: seeded(8) });
+    expect(s.phase).toBe('ready');
+    expect(s.stage).toBe(0);
+    expect(s.rounds).toEqual([]);
+    expect(s.slots).toEqual([null, null, null]);
+    expect(elapsedMs(s, 9999)).toBe(0);
+    expect(gameReducer(s, { type: 'nextRound', runId: oldRun, now: 3000 })).toBe(s);
+    expect(gameReducer(s, { type: 'clickSlot', index: 0 })).toBe(s);
+  });
+});
+
 describe('formatTime', () => {
   it('formats mm:ss.cs', () => {
     expect(formatTime(0)).toBe('00:00.00');

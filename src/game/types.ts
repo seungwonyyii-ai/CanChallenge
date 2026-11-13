@@ -16,6 +16,10 @@ export interface Drink {
    * clearly marked placeholder label is generated at runtime.
    */
   labelTexture?: string;
+  /** Can size in mm (estimates from can_dimensions.csv, not physically verified). */
+  diameterMm: number;
+  heightMm: number;
+  volumeMl: number;
 }
 
 /** What is currently "picked up" by the player. */

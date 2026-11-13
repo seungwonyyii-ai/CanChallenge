@@ -46,17 +46,20 @@ async function waitForServer() {
 
 const countCorrect = (slots, answer) => slots.reduce((n, id, i) => n + (id === answer[i] ? 1 : 0), 0);
 
-async function run(viewport, label) {
+async function run(viewport, label, seedBest = null) {
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  page.on('dialog', (d) => d.accept());
+  page.on('dialog', () => errors.push('native dialog must not be used'));
   const shot = async (name) => SHOTS && page.screenshot({ path: `${SHOTS}/${label}-${name}.png` });
 
   await page.goto(URL);
   await page.waitForSelector('[data-testid=start]');
-  await page.evaluate(() => localStorage.removeItem('nbox_best_stopwatch'));
+  // desktop: no record yet; mobile: an unbeatable 1.00 s record → "not a new best" path
+  await page.evaluate((seed) => (seed ? localStorage.setItem('nbox_best_stopwatch', seed) : localStorage.removeItem('nbox_best_stopwatch')), seedBest);
+  await page.reload();
+  await page.waitForSelector('[data-testid=start]');
   await page.waitForTimeout(800);
   await shot('00-start');
   await page.click('[data-testid=start]');
@@ -160,19 +163,44 @@ async function run(viewport, label) {
   await shot('06-result');
   const best = await page.evaluate(() => localStorage.getItem('nbox_best_stopwatch'));
   assert.ok(Number(best) > 0, 'best record saved');
+  const compare = await page.textContent('[data-testid=compare]');
+  if (seedBest) {
+    assert.equal(best, seedBest, 'slower run does not overwrite best');
+    assert.match(compare, /최고 기록까지/, 'invites a retry');
+    assert.equal(await page.textContent('[data-testid=play-again]'), '다시 도전');
+  } else {
+    assert.match(compare, /첫 기록/, 'first run framed as first record');
+  }
 
-  // --- best survives reload
+
+  // --- best survives reload and is shown above START
   await page.reload();
   await page.waitForSelector('[data-testid=start]');
-  assert.match(await page.textContent('.modal-note'), /BEST \d\d:\d\d\.\d\d/);
+  assert.equal(await page.textContent('[data-testid=best-time]'), seedBest ? '00:01.00' : t2);
+  await shot('07-start-with-best');
 
-  // --- RESTART mid-game resets to 3-box
+  // --- RESTART mid-game: in-game dialog; cancel keeps the run, confirm restarts
   await page.click('[data-testid=start]');
   await waitState(() => window.__NBOX_STATE__?.phase === 'playing');
+  const runBefore = (await state()).runId;
   await page.click('[data-testid=restart]');
+  await page.waitForSelector('[data-testid=confirm-dialog]');
+  await shot('08-confirm');
+  await page.click('[data-testid=confirm-cancel]');
+  assert.equal((await state()).runId, runBefore, 'cancel keeps the run');
+  await page.click('[data-testid=restart]');
+  await page.click('[data-testid=confirm-ok]');
   const s2 = await state();
+  assert.equal(s2.runId, runBefore + 1);
   assert.equal(s2.stage, 0);
   assert.equal(s2.ids.length, 3);
+
+  // --- logo → start screen (with confirmation while playing)
+  await page.click('[data-testid=logo]');
+  await page.click('[data-testid=confirm-ok]');
+  await page.waitForSelector('[data-testid=start]');
+  assert.equal((await state()).phase, 'ready');
+  await page.waitForFunction(() => document.querySelector('[data-testid=timer]').textContent === '00:00.00', null, { timeout: 2000 });
 
   assert.deepEqual(errors, [], 'no page errors');
   await browser.close();
@@ -182,7 +210,7 @@ async function run(viewport, label) {
 try {
   await waitForServer();
   await run({ width: 1280, height: 800 }, 'desktop');
-  await run({ width: 390, height: 844 }, 'mobile');
+  await run({ width: 390, height: 844 }, 'mobile', '1000');
   stop();
   process.exit(0);
 } catch (e) {

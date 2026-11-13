@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getDrink } from '../game/drinks';
+import { DRINKS, getDrink } from '../game/drinks';
 import type { DrinkId } from '../game/types';
 
 export const UI_FONT = `'BMKkubulim', 'Jua', 'Noto Sans KR', system-ui, sans-serif`;
@@ -111,6 +111,22 @@ function placeholderLabel(id: DrinkId): THREE.Texture {
   return toTexture(c, 8);
 }
 
+const labelUrl = (src: string) => `${import.meta.env.BASE_URL}${src.replace(/^\//, '')}`;
+
+/** Warm the browser cache with every label image (resolves even on errors). */
+export function preloadLabelImages(): Promise<unknown> {
+  return Promise.all(
+    DRINKS.filter((d) => d.labelTexture).map(
+      (d) =>
+        new Promise((resolve) => {
+          const img = new Image();
+          img.onload = img.onerror = () => resolve(null);
+          img.src = labelUrl(d.labelTexture!);
+        }),
+    ),
+  );
+}
+
 const labelCache = new Map<DrinkId, THREE.Texture>();
 
 /**
@@ -127,7 +143,7 @@ export function getLabelTexture(id: DrinkId): THREE.Texture {
   const src = getDrink(id).labelTexture;
   if (src) {
     new THREE.TextureLoader().load(
-      `${import.meta.env.BASE_URL}${src.replace(/^\//, '')}`,
+      labelUrl(src),
       (img) => {
         // Paint the loaded image into the same texture object so every can
         // that already uses it updates automatically.
