@@ -47,8 +47,10 @@ export const TRAY_DEPTH = 0.86;
 
 export const ANSWER_SCALE = 0.86;
 
-export const innerWidth = (n: number) => n * SLOT_W;
-export const slotX = (i: number, n: number) => (i - (n - 1) / 2) * SLOT_W;
+// `slotW` lets other object themes (book, snack mock-ups) reuse the cabinet
+// with wider slots; the CAN game always uses the default.
+export const innerWidth = (n: number, slotW = SLOT_W) => n * slotW;
+export const slotX = (i: number, n: number, slotW = SLOT_W) => (i - (n - 1) / 2) * slotW;
 
 export type Vec3 = [number, number, number];
 
@@ -57,7 +59,7 @@ export const trayPosition = (i: number, n: number): Vec3 => [slotX(i, n), TRAY_T
 export const answerPosition = (i: number, n: number): Vec3 => [slotX(i, n), LOWER_FLOOR, -0.08];
 
 /** Bounds the camera must keep in view for an `n`-box round. */
-export function contentBounds(n: number) {
-  const halfW = innerWidth(n) / 2 + WALL + 0.16;
+export function contentBounds(n: number, slotW = SLOT_W) {
+  const halfW = innerWidth(n, slotW) / 2 + WALL + 0.16;
   return { halfW, top: SHELF_FLOOR + SHELF_INNER_H + 0.25, bottom: FLOOR_Y - 0.08 };
 }

@@ -38,14 +38,14 @@ export interface GameSceneProps {
 }
 
 /** Keeps the whole cabinet + tray in frame for any aspect ratio; eases on round change. */
-function CameraRig({ n }: { n: number }) {
+export function CameraRig({ n, slotW }: { n: number; slotW?: number }) {
   const { camera, size } = useThree();
   const dist = useRef<number | null>(null);
   const target = useMemo(() => new THREE.Vector3(), []);
 
   useFrame((_, delta) => {
     const cam = camera as THREE.PerspectiveCamera;
-    const b = contentBounds(n);
+    const b = contentBounds(n, slotW);
     const aspect = size.width / Math.max(1, size.height);
     const tanV = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
     const halfH = (b.top - b.bottom) / 2;
@@ -63,7 +63,7 @@ function CameraRig({ n }: { n: number }) {
   return null;
 }
 
-function Environment() {
+export function Environment() {
   const { gl, scene } = useThree();
   useEffect(() => {
     // Neutral studio reflections generated locally (no HDR download).
@@ -81,7 +81,7 @@ function Environment() {
 }
 
 /** Pins a DOM overlay to the centre of the play shelf (for the `N RIGHT!` toast). */
-function ShelfAnchor({ anchor }: { anchor: RefObject<HTMLDivElement | null> }) {
+export function ShelfAnchor({ anchor }: { anchor: RefObject<HTMLDivElement | null> }) {
   const { camera, size } = useThree();
   const v = useMemo(() => new THREE.Vector3(), []);
   useFrame(() => {
@@ -92,6 +92,38 @@ function ShelfAnchor({ anchor }: { anchor: RefObject<HTMLDivElement | null> }) {
     el.style.top = `${((1 - v.y) / 2) * size.height}px`;
   });
   return null;
+}
+
+/** Soft studio lighting + shadow-catching floor shared by every theme. */
+export function StudioLights() {
+  return (
+    <>
+      <hemisphereLight args={['#fffdf7', '#d9d4c8', 0.75]} />
+      <directionalLight
+        position={[0.8, 7.5, 6.5]}
+        intensity={1.55}
+        color="#fffaf0"
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.02}
+        shadow-radius={4}
+        shadow-camera-left={-4.5}
+        shadow-camera-right={4.5}
+        shadow-camera-top={3}
+        shadow-camera-bottom={-4}
+        shadow-camera-near={1}
+        shadow-camera-far={20}
+      />
+      <directionalLight position={[-4, 2, 5]} intensity={0.35} color="#f3f1ff" />
+
+      {/* floor: invisible except for the shadows it catches */}
+      <mesh rotation-x={-Math.PI / 2} position-y={FLOOR_Y} receiveShadow>
+        <planeGeometry args={[40, 40]} />
+        <shadowMaterial opacity={0.05} />
+      </mesh>
+    </>
+  );
 }
 
 /** Exposes projected hit-target centres for automated tests (`?e2e`). */
@@ -163,30 +195,7 @@ function SceneContent({ state, coverOpen, reducedMotion, interactive, onSlot, on
       <color attach="background" args={[BG]} />
       <CameraRig n={n} />
       <Environment />
-      <hemisphereLight args={['#fffdf7', '#d9d4c8', 0.75]} />
-      <directionalLight
-        position={[0.8, 7.5, 6.5]}
-        intensity={1.55}
-        color="#fffaf0"
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-bias={-0.0004}
-        shadow-normalBias={0.02}
-        shadow-radius={4}
-        shadow-camera-left={-4.5}
-        shadow-camera-right={4.5}
-        shadow-camera-top={3}
-        shadow-camera-bottom={-4}
-        shadow-camera-near={1}
-        shadow-camera-far={20}
-      />
-      <directionalLight position={[-4, 2, 5]} intensity={0.35} color="#f3f1ff" />
-
-      {/* floor: invisible except for the shadows it catches */}
-      <mesh rotation-x={-Math.PI / 2} position-y={FLOOR_Y} receiveShadow>
-        <planeGeometry args={[40, 40]} />
-        <shadowMaterial opacity={0.05} />
-      </mesh>
+      <StudioLights />
 
       <Cabinet n={n} emptySlots={state.slots.map((s) => s === null)} />
       <TrayCounter n={n} />

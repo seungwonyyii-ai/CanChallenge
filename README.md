@@ -78,6 +78,8 @@ src/
     MatchToast.tsx # N RIGHT!
     Overlays.tsx   # 시작/결과 화면
     Fallback2D.tsx # WebGL 미지원 시 2D 보드
+  themes/          # 테마 레지스트리 + BOOK/SNACK 목업 오브젝트·텍스처
+  preview/         # ?preview 디자인 목업 화면
   App.tsx          # 리듀서 + 타임라인(판정, 공개, 다음 라운드, 기록 저장)
   fonts.ts         # 폰트 로딩
 public/assets/drinks/  # 펼친 캔 라벨 텍스처 (생성물)
@@ -117,6 +119,25 @@ docs/PRD.md            # 작업 지시서
   현재 라벨은 프로젝트 소유자가 제공한 제품 사진으로 만든 것이며, 사진의 출처와 사용 권한은 이 저장소에서 검증되지 않았습니다.
   공개 배포 전에 사진 사용 권한과 상표 사용 범위를 반드시 확인하세요.
 - Three.js, React Three Fiber, drei: MIT.
+
+## 테마 확장 디자인 목업 (Preview)
+
+게임 로직 없이 화면 디자인만 확인하는 목업입니다. 쿼리 문자열로 열리고(정적 호스팅에서 리라이트 불필요), 별도 청크로 지연 로딩되어 CAN 게임 번들·로직에는 영향이 없습니다.
+
+| 경로 | 내용 |
+| --- | --- |
+| `/?preview` | 목업 목록 |
+| `/?preview=themes` | 테마 선택 화면 (CAN = PLAY → 실제 게임, BOOK / SNACK = COMING SOON) |
+| `/?preview=book&box=4` | BOOK 게임 화면 (`box=3·4·5`, `toast=0`이면 `2 RIGHT!` 숨김) |
+| `/?preview=snack&box=4` | SNACK 게임 화면 |
+| `/?preview=can&box=4` | 같은 정지 상태의 CAN 화면 (디자인 일관성 비교용) |
+
+- 테마 목록은 `src/themes/themes.ts` 한 곳에서 관리합니다. 항목을 추가하면 선택 화면 카드가 자동으로 늘어납니다(auto-fit 그리드).
+- 진열장·트레이·가림판·조명·카메라는 CAN 게임 컴포넌트를 그대로 재사용하고, 테마별로 슬롯 너비(`slotW`)만 다릅니다 (CAN 0.68 / BOOK 0.8 / SNACK 0.86).
+- 책(`Book3D`): 하드커버(덮개 돌출·힌지 홈·둥근 책등)와 페이퍼백, 종이 단면 질감, 두께가 다른 5권.
+- 과자(`Snack3D`): 부풀어 오른 봉지(위아래 실링 주름, 유광 필름) 3종 + 무광 종이 상자 2종.
+- **BOOK·SNACK의 제목·제품명·패키지는 모두 가상의 SAMPLE 디자인**이며 오브젝트마다 `SAMPLE` 표기가 있습니다. 실제 제품/도서가 아닙니다.
+  출시 전에 사용권이 확인된 실제 아트워크로 교체해야 합니다 (`src/themes/mockItems.ts`, `src/themes/mockTextures.ts`).
 
 ## 배포
 

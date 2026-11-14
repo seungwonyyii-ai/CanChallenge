@@ -22,7 +22,8 @@ const CANVAS_TEXT = `${DRINKS.map((d) => d.name).join('')}정답은 이 아래�
 
 const KKUBULIM_FONT_FILE: string | null = null;
 
-export async function loadFonts(): Promise<void> {
+export async function loadFonts(extraText = ''): Promise<void> {
+  const text = CANVAS_TEXT + extraText;
   const tasks: Promise<unknown>[] = [];
   if (KKUBULIM_FONT_FILE) {
     const face = new FontFace('BMKkubulim', `url(${import.meta.env.BASE_URL}${KKUBULIM_FONT_FILE})`, { display: 'swap' });
@@ -30,8 +31,8 @@ export async function loadFonts(): Promise<void> {
     tasks.push(face.load().catch(() => console.warn('[nbox] BMKkubulim font failed to load; using Jua')));
   }
   // Make sure Jua is ready before canvas textures (can labels) are painted.
-  tasks.push(document.fonts.load('48px Jua', CANVAS_TEXT).catch(() => undefined));
-  if (KKUBULIM_FONT_FILE) tasks.push(document.fonts.load('48px BMKkubulim', CANVAS_TEXT).catch(() => undefined));
+  tasks.push(document.fonts.load('48px Jua', text).catch(() => undefined));
+  if (KKUBULIM_FONT_FILE) tasks.push(document.fonts.load('48px BMKkubulim', text).catch(() => undefined));
   const timeout = new Promise((r) => setTimeout(r, 2500));
   await Promise.race([Promise.all(tasks), timeout]);
 }
