@@ -14,9 +14,9 @@ function defaultStorage(): StorageLike | null {
   }
 }
 
-export function loadBest(storage: StorageLike | null = defaultStorage()): number | null {
+export function loadBest(storage: StorageLike | null = defaultStorage(), key = BEST_KEY): number | null {
   try {
-    const v = Number(storage?.getItem(BEST_KEY));
+    const v = Number(storage?.getItem(key));
     return Number.isFinite(v) && v > 0 ? v : null;
   } catch {
     return null;
@@ -24,11 +24,11 @@ export function loadBest(storage: StorageLike | null = defaultStorage()): number
 }
 
 /** Saves `timeMs` if it beats the stored best. Returns whether it was a new best. */
-export function saveIfBest(timeMs: number, storage: StorageLike | null = defaultStorage()): boolean {
-  const best = loadBest(storage);
+export function saveIfBest(timeMs: number, storage: StorageLike | null = defaultStorage(), key = BEST_KEY): boolean {
+  const best = loadBest(storage, key);
   if (best !== null && timeMs >= best) return false;
   try {
-    storage?.setItem(BEST_KEY, String(timeMs));
+    storage?.setItem(key, String(timeMs));
   } catch {
     /* private mode / quota — keep the in-memory result */
   }

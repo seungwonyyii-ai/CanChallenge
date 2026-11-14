@@ -17,9 +17,11 @@ import { AnswerCompartment, Cabinet, TrayCounter } from '../components/Shelf3D';
 import type { DrinkId } from '../game/types';
 import { CAN_Z, SHELF_FLOOR, slotX, type Vec3 } from '../three/layout';
 import { prefersReducedMotion } from '../three/motion';
-import { BOOKS, SNACKS } from '../themes/mockItems';
-import { Book3D, Snack3D } from '../themes/Objects3D';
-import { THEMES, getTheme, type ThemeId } from '../themes/themes';
+import { Book3D } from '../themes/Book3D';
+import { GAME_THEMES } from '../themes/gameThemes';
+import { SNACKS } from '../themes/mockItems';
+import { Snack3D } from '../themes/Objects3D';
+import { THEMES, getTheme, themeHref, type ThemeId } from '../themes/themes';
 import './preview.css';
 
 const CAN_ORDER: DrinkId[] = ['pear', 'morning', 'pine', 'plum', 'sikhye'];
@@ -110,8 +112,8 @@ function HeroObjects({ id }: { id: ThemeId }) {
     case 'book':
       return (
         <>
-          <Book3D spec={BOOKS[2]} position={[-0.34, 0, -0.05]} rotationY={0.18} />
-          <Book3D spec={BOOKS[0]} position={[0.36, 0, 0.06]} rotationY={-0.2} />
+          <Book3D id="demian" position={[-0.36, 0, -0.06]} scale={1.15} />
+          <Book3D id="moon_and_sixpence" position={[0.34, 0, 0.06]} scale={1.15} />
         </>
       );
     case 'snack':
@@ -166,7 +168,7 @@ function ThemeSelect() {
             return (
               <li key={t.id} className={`theme-card${playable ? '' : ' soon'}`} data-testid={`theme-${t.id}`}>
                 {playable ? (
-                  <a href={window.location.pathname} aria-label={`${t.label} ${t.ko} 테마로 플레이`}>
+                  <a href={themeHref(t.id)} aria-label={`${t.label} ${t.ko} 테마로 플레이`}>
                     {body}
                   </a>
                 ) : (
@@ -195,7 +197,7 @@ const TILT = [0.16, -0.1, 0.08, -0.14, 0.12];
 
 function MockItems({ theme, n, slotW }: { theme: ThemeId; n: number; slotW: number }) {
   const pos = (i: number): Vec3 => [slotX(i, n, slotW), SHELF_FLOOR, CAN_Z];
-  if (theme === 'book') return <>{BOOKS.slice(0, n).map((b, i) => <Book3D key={b.id} spec={b} position={pos(i)} rotationY={TILT[i] * 1.8} />)}</>;
+  if (theme === 'book') return <>{GAME_THEMES.book.pool.slice(0, n).map((id, i) => <Book3D key={id} id={id} position={pos(i)} />)}</>;
   if (theme === 'snack') return <>{SNACKS.slice(0, n).map((s, i) => <Snack3D key={s.id} spec={s} position={pos(i)} rotationY={TILT[i] * 0.6} />)}</>;
   return <>{CAN_ORDER.slice(0, n).map((id, i) => <Can3D key={id} id={id} position={pos(i)} />)}</>;
 }
@@ -231,7 +233,7 @@ function MockGame({ theme, n, toast }: { theme: ThemeId; n: number; toast: boole
           <StudioLights />
           <Cabinet n={n} emptySlots={Array(n).fill(false)} slotW={slotW} />
           <TrayCounter n={n} slotW={slotW} />
-          <AnswerCompartment n={n} slotW={slotW} answer={[]} open={false} reducedMotion />
+          <AnswerCompartment n={n} slotW={slotW} answer={[]} open={false} reducedMotion Item={GAME_THEMES.can.Item} />
           <MockItems theme={theme} n={n} slotW={slotW} />
           <ShelfAnchor anchor={anchor} />
         </SceneCanvas>

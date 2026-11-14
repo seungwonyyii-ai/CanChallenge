@@ -1,13 +1,13 @@
 /**
- * Static 3D objects for the BOOK / SNACK design mock-ups.
+ * Static 3D objects for the SNACK design mock-up.
  * Each is placed by its base centre (like Can3D) and faces +z (the camera).
  */
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import type { Vec3 } from '../three/layout';
 import { makeBlobTexture } from '../three/textures';
-import type { BookSpec, SnackSpec } from './mockItems';
-import { bookCoverTexture, bookSpineTexture, pagesTexture, snackFrontTexture } from './mockTextures';
+import type { SnackSpec } from './mockItems';
+import { snackFrontTexture } from './mockTextures';
 
 let blobTex: THREE.Texture | null = null;
 function ContactShadow({ w, d }: { w: number; d: number }) {
@@ -22,63 +22,6 @@ function ContactShadow({ w, d }: { w: number; d: number }) {
 
 // BoxGeometry face order: +x, -x, +y, -y, +z, -z
 const plain = (color: string, roughness: number) => new THREE.MeshStandardMaterial({ color, roughness });
-
-// ---------------------------------------------------------------- book
-
-/**
- * Board covers (hardcover overhang + hinge), a cream page block with page-line
- * edges, and a printed spine. Paperbacks get thin, flush covers.
- */
-export function Book3D({ spec, position, rotationY = 0 }: { spec: BookSpec; position: Vec3; rotationY?: number }) {
-  const { w, h, d, hardcover } = spec;
-  const board = hardcover ? 0.016 : 0.006;
-  const over = hardcover ? 0.014 : 0;
-
-  const mats = useMemo(() => {
-    const coverColor = plain(spec.bg, hardcover ? 0.6 : 0.5);
-    const coverPrint = new THREE.MeshStandardMaterial({ map: bookCoverTexture(spec), roughness: hardcover ? 0.55 : 0.42 });
-    const spine = new THREE.MeshStandardMaterial({ map: bookSpineTexture(spec), roughness: 0.55 });
-    const fore = new THREE.MeshStandardMaterial({ map: pagesTexture(true), roughness: 0.9 });
-    const topEdge = new THREE.MeshStandardMaterial({ map: pagesTexture(false), roughness: 0.9 });
-    return {
-      front: [coverColor, coverColor, coverColor, coverColor, coverPrint, coverColor],
-      back: [coverColor, coverColor, coverColor, coverColor, coverColor, coverColor],
-      spine: [coverColor, spine, coverColor, coverColor, coverColor, coverColor],
-      pages: [fore, fore, topEdge, topEdge, fore, fore],
-    };
-  }, [spec, hardcover]);
-
-  const pagesW = w - over - board;
-  const pagesD = d - board * 2;
-  return (
-    <group position={position} rotation-y={rotationY}>
-      <ContactShadow w={w} d={d} />
-      <group position-y={h / 2}>
-        {/* page block, set back from the fore-edge by the overhang */}
-        <mesh material={mats.pages} position={[-w / 2 + board + pagesW / 2, 0, 0]} castShadow receiveShadow>
-          <boxGeometry args={[pagesW, h - over * 2, pagesD]} />
-        </mesh>
-        {/* front / back boards */}
-        <mesh material={mats.front} position={[0, 0, d / 2 - board / 2]} castShadow receiveShadow>
-          <boxGeometry args={[w, h, board]} />
-        </mesh>
-        <mesh material={mats.back} position={[0, 0, -d / 2 + board / 2]} castShadow receiveShadow>
-          <boxGeometry args={[w, h, board]} />
-        </mesh>
-        {/* spine; hardcovers get a gently rounded back */}
-        <mesh material={mats.spine} position={[-w / 2 + board / 2, 0, 0]} castShadow receiveShadow>
-          <boxGeometry args={[board, h, d]} />
-        </mesh>
-        {hardcover && (
-          <mesh position={[-w / 2 + board * 0.5, 0, 0]} scale={[0.32, 1, 1]} castShadow>
-            <cylinderGeometry args={[d / 2, d / 2, h, 24, 1, true, Math.PI, Math.PI]} />
-            <meshStandardMaterial color={spec.bg} roughness={0.6} side={THREE.DoubleSide} />
-          </mesh>
-        )}
-      </group>
-    </group>
-  );
-}
 
 // ---------------------------------------------------------------- snack
 

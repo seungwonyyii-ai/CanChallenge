@@ -78,12 +78,16 @@ src/
     MatchToast.tsx # N RIGHT!
     Overlays.tsx   # 시작/결과 화면
     Fallback2D.tsx # WebGL 미지원 시 2D 보드
-  themes/          # 테마 레지스트리 + BOOK/SNACK 목업 오브젝트·텍스처
+  themes/          # 테마 레지스트리, 게임 테마 설정, BOOK 모델·데이터, SNACK 목업
+    Movable 공용 모션은 components/Movable.tsx
   preview/         # ?preview 디자인 목업 화면
   App.tsx          # 리듀서 + 타임라인(판정, 공개, 다음 라운드, 기록 저장)
   fonts.ts         # 폰트 로딩
 public/assets/drinks/  # 펼친 캔 라벨 텍스처 (생성물)
 assets-src/drinks/     # 원본 제품 정면 사진
+assets-src/books/      # 원본 책 이미지(앞표지·3/4 렌더) + book_dimensions.csv
+public/assets/books/   # 가공된 앞표지·책등 텍스처 (생성물)
+scripts/make_book_textures.py  # 책 이미지 → 텍스처 변환
 scripts/make_can_labels.py  # 사진 → 라벨 텍스처 변환
 public/assets/fonts/   # (선택) 배달의민족 꾸불림체 파일을 두는 곳
 reference/             # 원본 단일 HTML MVP
@@ -120,6 +124,22 @@ docs/PRD.md            # 작업 지시서
   공개 배포 전에 사진 사용 권한과 상표 사용 범위를 반드시 확인하세요.
 - Three.js, React Three Fiber, drei: MIT.
 
+## BOOK 테마 (플레이 가능)
+
+`/?theme=book` — 민음사 세계문학전집 5권(달과 6펜스, 브람스를 좋아하세요..., 동물농장, 데미안, 참을 수 없는 존재의 가벼움)으로
+CAN과 **같은 엔진·타임라인·UI**를 그대로 씁니다(3→4→5, 클릭 배치/교환, 자동 판정, `N RIGHT!`, 가림판 공개, RESET/RESTART, 기록).
+테마가 바꾸는 것은 `src/themes/gameThemes.tsx`의 항목 풀, 3D 오브젝트, 칸 너비, 최고 기록 키(`cancan_best_book`), 시작 문구뿐입니다.
+
+- **크기:** `assets-src/books/book_dimensions.csv`의 너비·높이·두께(mm)를 `BOOK_MM = 0.0044`로 환산 (225 mm ≈ 0.99, 진열장 높이 안에 들어오도록).
+  두께 30 mm(달과 6펜스, 참을 수 없는…)와 20 mm의 차이가 그대로 보입니다.
+- **모델(`src/themes/Book3D.tsx`):** 페이퍼백 — 얇은 표지(카드지) + 크림색 종이 단면 + 앞표지·책등 인쇄. 뒷표지는 이미지가 없어 중립 재질.
+  앞표지와 책등이 함께 보이도록 0.5 rad(약 29°) 돌린 3/4 시점이며, 이동·교환·선택 애니메이션은 캔과 공용(`Movable`)이라 회전해도 표지와 책등이 한 몸으로 움직입니다.
+- **텍스처(`scripts/make_book_textures.py`):** 원본은 `assets-src/books/`에 그대로 두고 가공본만 `public/assets/books/`에 씁니다.
+  - 앞표지: 평면 스캔(`<id>_front.jpeg`)을 그대로 사용(오른쪽 1–3 px 어두운 스캔 테두리만 제거).
+  - 책등: 3/4 렌더(`<id>_full.png`)에서 왼쪽 가장자리~표지 접힘선 사이의 책등 띠만 잘라 직사각형으로 폅니다.
+    렌더 속 앞표지는 쓰지 않으므로 3D 모델에 표지가 중복되지 않습니다. 책등은 전부 보이는 상태라 추정해 그린 부분은 없습니다.
+    (책등 위쪽 몇 px에 같은 회색의 책 윗면이 섞이고, 이미지 아래가 잘려 있는 정도의 오차가 있습니다.)
+
 ## 테마 확장 디자인 목업 (Preview)
 
 게임 로직 없이 화면 디자인만 확인하는 목업입니다. 쿼리 문자열로 열리고(정적 호스팅에서 리라이트 불필요), 별도 청크로 지연 로딩되어 CAN 게임 번들·로직에는 영향이 없습니다.
@@ -127,17 +147,18 @@ docs/PRD.md            # 작업 지시서
 | 경로 | 내용 |
 | --- | --- |
 | `/?preview` | 목업 목록 |
-| `/?preview=themes` | 테마 선택 화면 (CAN = PLAY → 실제 게임, BOOK / SNACK = COMING SOON) |
-| `/?preview=book&box=4` | BOOK 게임 화면 (`box=3·4·5`, `toast=0`이면 `2 RIGHT!` 숨김) |
+| `/?preview=themes` | 테마 선택 화면 (CAN·BOOK = PLAY → 실제 게임, SNACK = COMING SOON) |
+| `/?preview=book&box=4` | BOOK 정지 화면 (실제 책 사용, `box=3·4·5`, `toast=0`이면 `2 RIGHT!` 숨김) |
 | `/?preview=snack&box=4` | SNACK 게임 화면 |
 | `/?preview=can&box=4` | 같은 정지 상태의 CAN 화면 (디자인 일관성 비교용) |
 
 - 테마 목록은 `src/themes/themes.ts` 한 곳에서 관리합니다. 항목을 추가하면 선택 화면 카드가 자동으로 늘어납니다(auto-fit 그리드).
 - 진열장·트레이·가림판·조명·카메라는 CAN 게임 컴포넌트를 그대로 재사용하고, 테마별로 슬롯 너비(`slotW`)만 다릅니다 (CAN 0.68 / BOOK 0.8 / SNACK 0.86).
-- 책(`Book3D`): 하드커버(덮개 돌출·힌지 홈·둥근 책등)와 페이퍼백, 종이 단면 질감, 두께가 다른 5권.
 - 과자(`Snack3D`): 부풀어 오른 봉지(위아래 실링 주름, 유광 필름) 3종 + 무광 종이 상자 2종.
-- **BOOK·SNACK의 제목·제품명·패키지는 모두 가상의 SAMPLE 디자인**이며 오브젝트마다 `SAMPLE` 표기가 있습니다. 실제 제품/도서가 아닙니다.
+- **SNACK의 제품명·패키지는 모두 가상의 SAMPLE 디자인**이며 오브젝트마다 `SAMPLE` 표기가 있습니다. 실제 제품/도서가 아닙니다.
   출시 전에 사용권이 확인된 실제 아트워크로 교체해야 합니다 (`src/themes/mockItems.ts`, `src/themes/mockTextures.ts`).
+- **책 표지·책등 이미지**는 민음사와 표지 사진·그림 저작권자의 저작물이며, 프로젝트 소유자가 제공한 것입니다.
+  제공 이미지 하단에 판매처(yes24) 워터마크가 옅게 남아 있습니다. 공개 배포 전 사용 권한을 확인하고 필요하면 원본 이미지로 교체하세요.
 
 ## 배포
 

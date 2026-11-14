@@ -1,6 +1,5 @@
 import type { CSSProperties } from 'react';
-import { getDrink } from '../game/drinks';
-import type { DrinkId, GameState } from '../game/types';
+import type { ItemId, GameState } from '../game/types';
 import { MatchToast } from './MatchToast';
 
 /**
@@ -13,16 +12,18 @@ export function Fallback2D({
   interactive,
   onSlot,
   onTray,
+  itemInfo,
 }: {
   state: GameState;
   coverOpen: boolean;
   interactive: boolean;
   onSlot: (i: number) => void;
-  onTray: (id: DrinkId) => void;
+  onTray: (id: ItemId) => void;
+  itemInfo: (id: ItemId) => { name: string; color: string; ink: string };
 }) {
   const sel = state.selection;
-  const can = (id: DrinkId, selected = false) => {
-    const d = getDrink(id);
+  const can = (id: ItemId, selected = false) => {
+    const d = itemInfo(id);
     return (
       <span className={`can2d${selected ? ' selected' : ''}`} style={{ '--can': d.color, '--ink': d.ink } as CSSProperties}>
         {d.name}

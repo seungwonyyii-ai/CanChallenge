@@ -11,7 +11,9 @@ import {
   type GameAction,
 } from './engine';
 import { BEST_KEY, loadBest, saveIfBest } from './records';
-import type { DrinkId, GameState } from './types';
+
+const BOOK_POOL = ['moon_and_sixpence', 'do_you_like_brahms', 'animal_farm', 'demian', 'unbearable_lightness'];
+import type { ItemId, GameState } from './types';
 
 /** Small deterministic PRNG (mulberry32). */
 function seeded(seed: number) {
@@ -32,7 +34,7 @@ function started(seed = 1, now = 1000) {
 }
 
 /** Place tray cans so that the arrangement equals `order`. */
-function placeAll(s: GameState, order: DrinkId[]): GameState {
+function placeAll(s: GameState, order: ItemId[]): GameState {
   return order.reduce(
     (st, id, i) => run(st, { type: 'clickTray', id }, { type: 'clickSlot', index: i }),
     s,
@@ -40,7 +42,7 @@ function placeAll(s: GameState, order: DrinkId[]): GameState {
 }
 
 /** A full arrangement where exactly `k` slots match (k !== n-1). */
-function arrangementWith(answer: DrinkId[], k: number): DrinkId[] {
+function arrangementWith(answer: ItemId[], k: number): ItemId[] {
   const n = answer.length;
   const out = [...answer];
   // rotate the last n-k items by one → none of them are correct
@@ -76,7 +78,7 @@ describe('round generation', () => {
 
 describe('countCorrect', () => {
   it('counts only exact positional matches', () => {
-    const answer: DrinkId[] = ['pear', 'pine', 'plum'];
+    const answer: ItemId[] = ['pear', 'pine', 'plum'];
     expect(countCorrect(['pear', 'pine', 'plum'], answer)).toBe(3);
     expect(countCorrect(['pine', 'pear', 'plum'], answer)).toBe(1);
     expect(countCorrect(['plum', 'pear', 'pine'], answer)).toBe(0);
@@ -281,6 +283,30 @@ describe('home (logo)', () => {
   });
 });
 
+describe('BOOK theme pool (shared engine)', () => {
+  it('draws every round from the theme pool and plays 3 → 4 → 5 the same way', () => {
+    let s = gameReducer(createInitialState(seeded(1), BOOK_POOL), { type: 'start', now: 0, rng: seeded(2) });
+    for (const size of [3, 4, 5]) {
+      expect(s.ids).toHaveLength(size);
+      s.ids.forEach((id) => expect(BOOK_POOL).toContain(id));
+      s = placeAll(s, s.answer);
+      s = gameReducer(s, { type: 'judge', seq: s.pendingJudge!, now: size * 1000 });
+      expect(s.lastResult?.perfect).toBe(true);
+      if (size < 5) s = gameReducer(s, { type: 'nextRound', runId: s.runId, now: size * 1000 + 1 });
+    }
+    expect(new Set(s.ids)).toEqual(new Set(BOOK_POOL));
+    expect(s.finalMs).toBe(5000);
+  });
+
+  it('keeps the pool across RESTART and home', () => {
+    let s = gameReducer(createInitialState(seeded(1), BOOK_POOL), { type: 'start', now: 0 });
+    s = gameReducer(s, { type: 'home' });
+    s.ids.forEach((id) => expect(BOOK_POOL).toContain(id));
+    s = gameReducer(s, { type: 'start', now: 10 });
+    s.ids.forEach((id) => expect(BOOK_POOL).toContain(id));
+  });
+});
+
 describe('formatTime', () => {
   it('formats mm:ss.cs', () => {
     expect(formatTime(0)).toBe('00:00.00');
@@ -301,6 +327,13 @@ describe('personal best', () => {
     expect(saveIfBest(50000, st)).toBe(false);
     expect(saveIfBest(30000, st)).toBe(true);
     expect(loadBest(st)).toBe(30000);
+  });
+
+  it('keeps a separate record per theme key', () => {
+    const st = memStorage({ [BEST_KEY]: '40000' });
+    expect(saveIfBest(50000, st, 'cancan_best_book')).toBe(true);
+    expect(loadBest(st, 'cancan_best_book')).toBe(50000);
+    expect(loadBest(st)).toBe(40000);
   });
 
   it('treats missing or garbage values as no record', () => {

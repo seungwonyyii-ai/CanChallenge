@@ -54,9 +54,9 @@ export const slotX = (i: number, n: number, slotW = SLOT_W) => (i - (n - 1) / 2)
 
 export type Vec3 = [number, number, number];
 
-export const slotPosition = (i: number, n: number): Vec3 => [slotX(i, n), SHELF_FLOOR, CAN_Z];
-export const trayPosition = (i: number, n: number): Vec3 => [slotX(i, n), TRAY_TOP, TRAY_Z];
-export const answerPosition = (i: number, n: number): Vec3 => [slotX(i, n), LOWER_FLOOR, -0.08];
+export const slotPosition = (i: number, n: number, slotW = SLOT_W): Vec3 => [slotX(i, n, slotW), SHELF_FLOOR, CAN_Z];
+export const trayPosition = (i: number, n: number, slotW = SLOT_W): Vec3 => [slotX(i, n, slotW), TRAY_TOP, TRAY_Z];
+export const answerPosition = (i: number, n: number, slotW = SLOT_W): Vec3 => [slotX(i, n, slotW), LOWER_FLOOR, -0.08];
 
 /** Bounds the camera must keep in view for an `n`-box round. */
 export function contentBounds(n: number, slotW = SLOT_W) {

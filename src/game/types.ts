@@ -1,5 +1,8 @@
 export type DrinkId = 'morning' | 'plum' | 'pear' | 'sikhye' | 'pine';
 
+/** Any theme object id (drink, book, …). The engine only compares ids. */
+export type ItemId = string;
+
 export interface Drink {
   id: DrinkId;
   /** Korean product name, shown on the placeholder label. */
@@ -24,7 +27,7 @@ export interface Drink {
 
 /** What is currently "picked up" by the player. */
 export type Selection =
-  | { kind: 'tray'; id: DrinkId }
+  | { kind: 'tray'; id: ItemId }
   | { kind: 'slot'; index: number }
   | null;
 
@@ -57,12 +60,14 @@ export interface GameState {
   phase: Phase;
   /** Index into ROUND_SIZES. */
   stage: number;
-  /** Drinks used this round, in tray order. */
-  ids: DrinkId[];
+  /** Theme item pool every round draws from (5 items). */
+  pool: readonly ItemId[];
+  /** Items used this round, in tray order. */
+  ids: ItemId[];
   /** Hidden answer (index = slot). */
-  answer: DrinkId[];
+  answer: ItemId[];
   /** Player's arrangement (index = slot). */
-  slots: (DrinkId | null)[];
+  slots: (ItemId | null)[];
   selection: Selection;
   /** Judgements made in the current round (survives RESET). */
   attempts: number;

@@ -2,7 +2,7 @@ import { RoundedBox } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import type { DrinkId } from '../game/types';
+import type { ItemId } from '../game/types';
 import {
   ANSWER_SCALE,
   BACK_Z,
@@ -28,7 +28,8 @@ import {
 } from '../three/layout';
 import { MOTION, clamp01, easeInOutCubic, easeOutBack } from '../three/motion';
 import { makeCoverTexture, makeNumberTexture, makePlusTexture } from '../three/textures';
-import { Can3D } from './Can3D';
+import type { ComponentType } from 'react';
+import type { ThemeItemProps } from '../themes/itemTypes';
 
 const board = (color: string, roughness = 0.72) => new THREE.MeshStandardMaterial({ color, roughness, metalness: 0 });
 const MAT = {
@@ -169,10 +170,13 @@ export function AnswerCompartment({
   open,
   reducedMotion,
   slotW = SLOT_W,
+  Item,
 }: {
   n: number;
   slotW?: number;
-  answer: readonly DrinkId[];
+  /** The theme's 3D object (can, book, …). */
+  Item: ComponentType<ThemeItemProps>;
+  answer: readonly ItemId[];
   open: boolean;
   reducedMotion: boolean;
 }) {
@@ -212,7 +216,7 @@ export function AnswerCompartment({
     <group>
       <group ref={cans} visible={false}>
         {answer.map((id, i) => (
-          <Can3D key={`${id}-${i}`} id={id} position={answerPosition(i, n)} scale={ANSWER_SCALE} reducedMotion={reducedMotion} />
+          <Item key={`${id}-${i}`} id={id} position={answerPosition(i, n, slotW)} scale={ANSWER_SCALE} reducedMotion={reducedMotion} />
         ))}
       </group>
       <group ref={hinge} position={[0, LOWER_TOP, FRONT_Z + 0.028]}>

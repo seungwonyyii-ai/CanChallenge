@@ -23,7 +23,10 @@ try {
 }
 
 const PORT = 4179;
-const URL = `http://localhost:${PORT}/?e2e`;
+const BASE = `http://localhost:${PORT}/`;
+// theme → [query, localStorage best key]
+const THEMES = { can: ['?e2e', 'nbox_best_stopwatch'], book: ['?e2e&theme=book', 'cancan_best_book'] };
+const ONLY = process.env.THEME; // run a single theme
 const SHOTS = process.env.SHOTS;
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 
@@ -46,7 +49,9 @@ async function waitForServer() {
 
 const countCorrect = (slots, answer) => slots.reduce((n, id, i) => n + (id === answer[i] ? 1 : 0), 0);
 
-async function run(viewport, label, seedBest = null) {
+async function run(theme, viewport, label, seedBest = null) {
+  const [query, bestKey] = THEMES[theme];
+  label = `${theme}-${label}`;
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
   const errors = [];
@@ -54,10 +59,10 @@ async function run(viewport, label, seedBest = null) {
   page.on('dialog', () => errors.push('native dialog must not be used'));
   const shot = async (name) => SHOTS && page.screenshot({ path: `${SHOTS}/${label}-${name}.png` });
 
-  await page.goto(URL);
+  await page.goto(BASE + query);
   await page.waitForSelector('[data-testid=start]');
   // desktop: no record yet; mobile: an unbeatable 1.00 s record → "not a new best" path
-  await page.evaluate((seed) => (seed ? localStorage.setItem('nbox_best_stopwatch', seed) : localStorage.removeItem('nbox_best_stopwatch')), seedBest);
+  await page.evaluate(([seed, key]) => (seed ? localStorage.setItem(key, seed) : localStorage.removeItem(key)), [seedBest, bestKey]);
   await page.reload();
   await page.waitForSelector('[data-testid=start]');
   await page.waitForTimeout(800);
@@ -161,7 +166,7 @@ async function run(viewport, label, seedBest = null) {
   assert.equal(await page.textContent('[data-testid=result-time]'), t2);
   await page.waitForTimeout(300);
   await shot('06-result');
-  const best = await page.evaluate(() => localStorage.getItem('nbox_best_stopwatch'));
+  const best = await page.evaluate((key) => localStorage.getItem(key), bestKey);
   assert.ok(Number(best) > 0, 'best record saved');
   const compare = await page.textContent('[data-testid=compare]');
   if (seedBest) {
@@ -209,8 +214,11 @@ async function run(viewport, label, seedBest = null) {
 
 try {
   await waitForServer();
-  await run({ width: 1280, height: 800 }, 'desktop');
-  await run({ width: 390, height: 844 }, 'mobile', '1000');
+  for (const theme of Object.keys(THEMES)) {
+    if (ONLY && ONLY !== theme) continue;
+    await run(theme, { width: 1280, height: 800 }, 'desktop');
+    await run(theme, { width: 390, height: 844 }, 'mobile', '1000');
+  }
   stop();
   process.exit(0);
 } catch (e) {

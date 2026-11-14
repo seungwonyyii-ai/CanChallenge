@@ -8,7 +8,7 @@
  * answer or the arrangement.
  */
 import { ALL_DRINK_IDS } from './drinks';
-import type { DrinkId, GameState, MatchResult } from './types';
+import type { GameState, ItemId, MatchResult } from './types';
 
 export const ROUND_SIZES = [3, 4, 5] as const;
 export const LAST_STAGE = ROUND_SIZES.length - 1;
@@ -17,7 +17,7 @@ export type Rng = () => number;
 
 export type GameAction =
   | { type: 'start'; now: number; rng?: Rng }
-  | { type: 'clickTray'; id: DrinkId }
+  | { type: 'clickTray'; id: ItemId }
   | { type: 'clickSlot'; index: number }
   | { type: 'judge'; seq: number; now: number }
   | { type: 'reset' }
@@ -35,35 +35,40 @@ export function shuffle<T>(items: readonly T[], rng: Rng = Math.random): T[] {
 }
 
 /**
- * Pick `size` distinct drinks (all five for the 5-box) and an independent
+ * Pick `size` distinct items of the theme pool (all five for the 5-box) and an independent
  * random answer order.
  */
-export function createRound(size: number, rng: Rng = Math.random): { ids: DrinkId[]; answer: DrinkId[] } {
-  if (size < 1 || size > ALL_DRINK_IDS.length) throw new Error(`Invalid round size ${size}`);
-  const ids = shuffle(ALL_DRINK_IDS, rng).slice(0, size);
+export function createRound(
+  size: number,
+  rng: Rng = Math.random,
+  pool: readonly ItemId[] = ALL_DRINK_IDS,
+): { ids: ItemId[]; answer: ItemId[] } {
+  if (size < 1 || size > pool.length) throw new Error(`Invalid round size ${size}`);
+  const ids = shuffle(pool, rng).slice(0, size);
   const answer = shuffle(ids, rng);
   return { ids, answer };
 }
 
 /** Number of slots where the player's can matches the hidden answer. */
-export function countCorrect(slots: readonly (DrinkId | null)[], answer: readonly DrinkId[]): number {
+export function countCorrect(slots: readonly (ItemId | null)[], answer: readonly ItemId[]): number {
   let n = 0;
   for (let i = 0; i < answer.length; i++) if (slots[i] !== null && slots[i] === answer[i]) n++;
   return n;
 }
 
-export const isFull = (slots: readonly (DrinkId | null)[]): slots is DrinkId[] => slots.every((s) => s !== null);
+export const isFull = (slots: readonly (ItemId | null)[]): slots is ItemId[] => slots.every((s) => s !== null);
 
 /** Cans still waiting on the tray, in their fixed tray order. */
-export function trayIds(state: Pick<GameState, 'ids' | 'slots'>): DrinkId[] {
+export function trayIds(state: Pick<GameState, 'ids' | 'slots'>): ItemId[] {
   return state.ids.filter((id) => !state.slots.includes(id));
 }
 
-export function createInitialState(rng: Rng = Math.random): GameState {
+export function createInitialState(rng: Rng = Math.random, pool: readonly ItemId[] = ALL_DRINK_IDS): GameState {
   // A preview round is laid out behind the start screen.
-  const { ids, answer } = createRound(ROUND_SIZES[0], rng);
+  const { ids, answer } = createRound(ROUND_SIZES[0], rng, pool);
   return {
     phase: 'ready',
+    pool,
     stage: 0,
     ids,
     answer,
@@ -83,7 +88,7 @@ export function createInitialState(rng: Rng = Math.random): GameState {
 }
 
 function beginRound(state: GameState, stage: number, now: number, rng: Rng): GameState {
-  const { ids, answer } = createRound(ROUND_SIZES[stage], rng);
+  const { ids, answer } = createRound(ROUND_SIZES[stage], rng, state.pool);
   return {
     ...state,
     phase: 'playing',
@@ -102,7 +107,7 @@ function beginRound(state: GameState, stage: number, now: number, rng: Rng): Gam
 }
 
 /** Commit a changed arrangement; queue a judgement when every slot is filled. */
-function commitSlots(state: GameState, slots: (DrinkId | null)[], lastMove: 'place' | 'shift'): GameState {
+function commitSlots(state: GameState, slots: (ItemId | null)[], lastMove: 'place' | 'shift'): GameState {
   const moveSeq = state.moveSeq + 1;
   return {
     ...state,
@@ -228,7 +233,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       // Back to the start screen. Bumping runId invalidates any pending
       // round/result timers from the abandoned run.
       if (state.phase === 'ready') return state;
-      return { ...createInitialState(action.rng), runId: state.runId + 1, moveSeq: state.moveSeq + 1 };
+      return { ...createInitialState(action.rng, state.pool), runId: state.runId + 1, moveSeq: state.moveSeq + 1 };
     }
 
     default:

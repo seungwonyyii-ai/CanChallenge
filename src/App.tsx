@@ -4,8 +4,9 @@ import { GameScene } from './components/GameScene';
 import { BottomBar, TopBar } from './components/Hud';
 import { ConfirmDialog, ResultOverlay, StartOverlay } from './components/Overlays';
 import { canInteract, createInitialState, gameReducer, totalAttempts } from './game/engine';
+import { themeFromUrl } from './themes/gameThemes';
 import { loadBest, saveIfBest } from './game/records';
-import type { DrinkId } from './game/types';
+import type { ItemId } from './game/types';
 import { MOTION, prefersReducedMotion } from './three/motion';
 
 /** Falls back to the 2D board if the WebGL renderer throws. */
@@ -35,8 +36,10 @@ function useReducedMotion() {
 }
 
 export default function App() {
-  const [state, dispatch] = useReducer(gameReducer, undefined, () => createInitialState());
-  const [best, setBest] = useState<number | null>(() => loadBest());
+  // Theme is fixed for the page (`?theme=book`); CAN is the default game.
+  const [theme] = useState(themeFromUrl);
+  const [state, dispatch] = useReducer(gameReducer, undefined, () => createInitialState(Math.random, theme.pool));
+  const [best, setBest] = useState<number | null>(() => loadBest(undefined, theme.bestKey));
   /** Personal best as it was *before* the finished run was saved. */
   const [prevBest, setPrevBest] = useState<number | null>(null);
   const savedRun = useRef<number | null>(null);
@@ -81,10 +84,10 @@ export default function App() {
   useEffect(() => {
     if (finalMs === null || savedRun.current === runId) return;
     savedRun.current = runId; // StrictMode-safe: save once per run
-    const before = loadBest();
+    const before = loadBest(undefined, theme.bestKey);
     setPrevBest(before);
-    if (saveIfBest(finalMs)) setBest(finalMs);
-  }, [finalMs, runId]);
+    if (saveIfBest(finalMs, undefined, theme.bestKey)) setBest(finalMs);
+  }, [finalMs, runId, theme.bestKey]);
 
   // Test hook (only with ?e2e in the URL).
   useEffect(() => {
@@ -109,13 +112,13 @@ export default function App() {
   const closeConfirm = useCallback(() => setConfirm(null), []);
 
   const onSlot = useCallback((index: number) => dispatch({ type: 'clickSlot', index }), []);
-  const onTray = useCallback((id: DrinkId) => dispatch({ type: 'clickTray', id }), []);
+  const onTray = useCallback((id: ItemId) => dispatch({ type: 'clickTray', id }), []);
   const onReset = useCallback(() => dispatch({ type: 'reset' }), []);
 
   const interactive = canInteract(state);
   const canReset = interactive && (state.slots.some((s) => s !== null) || state.selection !== null);
 
-  const board2d = <Fallback2D state={state} coverOpen={coverOpen} interactive={interactive} onSlot={onSlot} onTray={onTray} />;
+  const board2d = <Fallback2D state={state} coverOpen={coverOpen} interactive={interactive} onSlot={onSlot} onTray={onTray} itemInfo={theme.itemInfo} />;
 
   return (
     <div className={`app phase-${phase}`}>
@@ -123,7 +126,7 @@ export default function App() {
       <main className="stage" aria-label="게임판">
         {webgl ? (
           <SceneBoundary fallback={board2d}>
-            <GameScene state={state} coverOpen={coverOpen} reducedMotion={reducedMotion} interactive={interactive} onSlot={onSlot} onTray={onTray} />
+            <GameScene state={state} coverOpen={coverOpen} reducedMotion={reducedMotion} interactive={interactive} onSlot={onSlot} onTray={onTray} theme={theme} />
           </SceneBoundary>
         ) : (
           board2d
@@ -131,7 +134,7 @@ export default function App() {
       </main>
       <BottomBar state={state} canReset={canReset} onReset={onReset} onRestart={restart} />
 
-      {phase === 'ready' && <StartOverlay best={best} onStart={start} />}
+      {phase === 'ready' && <StartOverlay best={best} onStart={start} text={theme.startText} />}
       {phase === 'finished' && state.finalMs !== null && (
         <ResultOverlay time={state.finalMs} prevBest={prevBest} attempts={totalAttempts(state)} onPlayAgain={start} />
       )}

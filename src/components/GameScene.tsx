@@ -2,13 +2,12 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import type { DrinkId, GameState } from '../game/types';
+import type { ItemId, GameState } from '../game/types';
 import {
   DEPTH,
   FLOOR_Y,
   SHELF_FLOOR,
   SHELF_INNER_H,
-  SLOT_W,
   TRAY_DEPTH,
   TRAY_TOP,
   TRAY_Z,
@@ -18,7 +17,7 @@ import {
   trayPosition,
 } from '../three/layout';
 import { damp } from '../three/motion';
-import { Can3D } from './Can3D';
+import type { GameTheme } from '../themes/gameThemes';
 import { MatchToast } from './MatchToast';
 import { AnswerCompartment, Cabinet, TrayCounter } from './Shelf3D';
 
@@ -32,7 +31,8 @@ export interface GameSceneProps {
   reducedMotion: boolean;
   interactive: boolean;
   onSlot: (index: number) => void;
-  onTray: (id: DrinkId) => void;
+  onTray: (id: ItemId) => void;
+  theme: GameTheme;
   /** DOM element (over the canvas) that is kept centred on the play shelf. */
   toastAnchor: RefObject<HTMLDivElement | null>;
 }
@@ -127,7 +127,7 @@ export function StudioLights() {
 }
 
 /** Exposes projected hit-target centres for automated tests (`?e2e`). */
-function TestProbe({ state }: { state: GameState }) {
+function TestProbe({ state, slotW }: { state: GameState; slotW: number }) {
   const { camera, size } = useThree();
   const enabled = useMemo(() => new URLSearchParams(window.location.search).has('e2e'), []);
   useFrame(() => {
@@ -138,8 +138,8 @@ function TestProbe({ state }: { state: GameState }) {
       return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height };
     };
     (window as unknown as { __NBOX_TARGETS__: unknown }).__NBOX_TARGETS__ = {
-      slots: Array.from({ length: n }, (_, i) => project(slotX(i, n), SHELF_FLOOR + 0.5, 0)),
-      tray: state.ids.map((id, i) => ({ id, ...project(slotX(i, n), TRAY_TOP + 0.5, TRAY_Z) })),
+      slots: Array.from({ length: n }, (_, i) => project(slotX(i, n, slotW), SHELF_FLOOR + 0.5, 0)),
+      tray: state.ids.map((id, i) => ({ id, ...project(slotX(i, n, slotW), TRAY_TOP + 0.5, TRAY_Z) })),
     };
   });
   return null;
@@ -178,14 +178,15 @@ function Hit({
   );
 }
 
-function SceneContent({ state, coverOpen, reducedMotion, interactive, onSlot, onTray, toastAnchor }: GameSceneProps) {
+function SceneContent({ state, coverOpen, reducedMotion, interactive, onSlot, onTray, toastAnchor, theme }: GameSceneProps) {
+  const { slotW, Item } = theme;
   const n = state.ids.length;
   const roundKey = `${state.runId}-${state.stage}`;
   const sel = state.selection;
 
   const cans = state.ids.map((id, trayIndex) => {
     const slot = state.slots.indexOf(id);
-    const position = slot >= 0 ? slotPosition(slot, n) : trayPosition(trayIndex, n);
+    const position = slot >= 0 ? slotPosition(slot, n, slotW) : trayPosition(trayIndex, n, slotW);
     const selected = (sel?.kind === 'tray' && sel.id === id) || (sel?.kind === 'slot' && state.slots[sel.index] === id);
     return { id, position, selected };
   });
@@ -193,16 +194,16 @@ function SceneContent({ state, coverOpen, reducedMotion, interactive, onSlot, on
   return (
     <>
       <color attach="background" args={[BG]} />
-      <CameraRig n={n} />
+      <CameraRig n={n} slotW={slotW} />
       <Environment />
       <StudioLights />
 
-      <Cabinet n={n} emptySlots={state.slots.map((s) => s === null)} />
-      <TrayCounter n={n} />
-      <AnswerCompartment key={roundKey} n={n} answer={state.answer} open={coverOpen} reducedMotion={reducedMotion} />
+      <Cabinet n={n} emptySlots={state.slots.map((s) => s === null)} slotW={slotW} />
+      <TrayCounter n={n} slotW={slotW} />
+      <AnswerCompartment key={roundKey} n={n} answer={state.answer} open={coverOpen} reducedMotion={reducedMotion} slotW={slotW} Item={Item} />
 
       {cans.map(({ id, position, selected }) => (
-        <Can3D key={`${roundKey}-${id}`} id={id} position={position} selected={selected} reducedMotion={reducedMotion} appear={state.phase !== 'ready'} />
+        <Item key={`${roundKey}-${id}`} id={id} position={position} selected={selected} reducedMotion={reducedMotion} appear={state.phase !== 'ready'} />
       ))}
 
       {/* generous, non-overlapping hit boxes: one per slot column and per tray spot */}
@@ -211,8 +212,8 @@ function SceneContent({ state, coverOpen, reducedMotion, interactive, onSlot, on
           key={`s${i}`}
           name={`slot-${i}`}
           enabled={interactive}
-          position={[slotX(i, n), SHELF_FLOOR + SHELF_INNER_H / 2, 0.1]}
-          size={[SLOT_W * 0.98, SHELF_INNER_H, DEPTH + 0.2]}
+          position={[slotX(i, n, slotW), SHELF_FLOOR + SHELF_INNER_H / 2, 0.1]}
+          size={[slotW * 0.98, SHELF_INNER_H, DEPTH + 0.2]}
           onClick={() => onSlot(i)}
         />
       ))}
@@ -221,15 +222,15 @@ function SceneContent({ state, coverOpen, reducedMotion, interactive, onSlot, on
           key={`t${id}`}
           name={`tray-${id}`}
           enabled={interactive && !state.slots.includes(id)}
-          position={[slotX(i, n), TRAY_TOP + 0.55, TRAY_Z]}
-          size={[SLOT_W * 0.98, 1.12, TRAY_DEPTH]}
+          position={[slotX(i, n, slotW), TRAY_TOP + 0.55, TRAY_Z]}
+          size={[slotW * 0.98, 1.12, TRAY_DEPTH]}
           onClick={() => onTray(id)}
         />
       ))}
 
       <ShelfAnchor anchor={toastAnchor} />
 
-      <TestProbe state={state} />
+      <TestProbe state={state} slotW={slotW} />
     </>
   );
 }

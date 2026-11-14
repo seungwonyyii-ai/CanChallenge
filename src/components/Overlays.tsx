@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { formatTime } from '../game/engine';
 
-export function StartOverlay({ best, onStart }: { best: number | null; onStart: () => void }) {
+export function StartOverlay({ best, onStart, text }: { best: number | null; onStart: () => void; text: string }) {
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="start-title">
       <div className="modal">
         <h1 id="start-title" className="modal-title">
           CANCAN
         </h1>
-        <p className="modal-text">음료를 줄 세워 자리를 맞혀보세요</p>
+        <p className="modal-text">{text}</p>
         <div className={`best-card${best === null ? ' empty' : ''}`} data-testid="best-card">
           <span className="best-label">MY BEST</span>
           {best !== null ? (

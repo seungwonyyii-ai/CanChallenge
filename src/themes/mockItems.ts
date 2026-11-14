@@ -1,5 +1,5 @@
 /**
- * SAMPLE items for the BOOK and SNACK design mock-ups.
+ * SAMPLE items for the SNACK design mock-up (BOOK now uses the real books in books.ts).
  *
  * Every title, brand-like name and package design here is FICTIONAL and is
  * stamped "SAMPLE" on the object, so it can't be mistaken for a real product.
@@ -7,30 +7,6 @@
  *
  * Sizes are world units (≈ 1 = 13 cm, same scale as the cans).
  */
-
-export interface BookSpec {
-  id: string;
-  title: string;
-  /** small line under the title */
-  sub: string;
-  w: number;
-  h: number;
-  /** thickness */
-  d: number;
-  hardcover: boolean;
-  bg: string;
-  ink: string;
-  accent: string;
-  motif: 'moon' | 'waves' | 'forest' | 'lemon' | 'map';
-}
-
-export const BOOKS: readonly BookSpec[] = [
-  { id: 'night', title: '밤의 정원', sub: '장편소설', w: 0.6, h: 0.86, d: 0.17, hardcover: true, bg: '#2f3a56', ink: '#efe6cf', accent: '#e4d3a6', motif: 'moon' },
-  { id: 'sea', title: '바다로 가는 길', sub: '여행 에세이', w: 0.54, h: 0.8, d: 0.11, hardcover: false, bg: '#93b6c6', ink: '#21384a', accent: '#f4f7f6', motif: 'waves' },
-  { id: 'forest', title: '작은 숲', sub: '그림책', w: 0.64, h: 0.9, d: 0.24, hardcover: true, bg: '#6f8b6a', ink: '#f1ecdc', accent: '#4f6a4c', motif: 'forest' },
-  { id: 'lemon', title: '오후의 레몬', sub: '시집', w: 0.5, h: 0.74, d: 0.09, hardcover: false, bg: '#ead58a', ink: '#3c3a2c', accent: '#f7f1d4', motif: 'lemon' },
-  { id: 'map', title: '붉은 지도', sub: '역사 교양', w: 0.58, h: 0.84, d: 0.19, hardcover: true, bg: '#b5684f', ink: '#f6ead9', accent: '#d68e75', motif: 'map' },
-];
 
 export interface SnackSpec {
   id: string;
@@ -56,4 +32,4 @@ export const SNACKS: readonly SnackSpec[] = [
 ];
 
 /** Every Korean glyph painted into mock-up textures (for font preloading). */
-export const MOCK_TEXT = [...BOOKS.flatMap((b) => [b.title, b.sub]), ...SNACKS.flatMap((s) => [s.name, s.sub]), '테마를 골라주세요 음료 캔 책 과자 출판'].join(' ');
+export const MOCK_TEXT = [...SNACKS.flatMap((s) => [s.name, s.sub]), '테마를 골라주세요 음료 캔 책 과자'].join(' ');
